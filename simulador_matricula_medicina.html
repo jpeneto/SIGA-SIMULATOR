@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Matrícula — Medicina</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --surface-0:#f5f4f0;--surface-1:#eeede9;--surface-2:#ffffff;
+  --text-primary:#1a1a18;--text-secondary:#5f5e5a;--text-muted:#888780;
+  --border:rgba(0,0,0,.12);--border-strong:rgba(0,0,0,.2);
+  --border-accent:#378add;--border-success:#3b6d11;--border-warning:#854f0b;--border-danger:#a32d2d;
+  --bg-accent:#e6f1fb;--bg-success:#eaf3de;--bg-warning:#faeeda;--bg-danger:#fcebeb;
+  --text-accent:#185fa5;--text-success:#3b6d11;--text-warning:#854f0b;--text-danger:#a32d2d;
+  --fill-accent:#378add;--fill-accent-hover:#185fa5;
+  --fill-danger:#e24b4a;--fill-success:#639922;--fill-warning:#ba7517;
+  --on-accent:#fff;
+  --radius:6px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --surface-0:#1c1c1a;--surface-1:#252523;--surface-2:#2e2e2b;
+    --text-primary:#f0efeb;--text-secondary:#a8a7a2;--text-muted:#6b6a66;
+    --border:rgba(255,255,255,.1);--border-strong:rgba(255,255,255,.18);
+    --border-accent:#5aaae8;--border-success:#97c459;--border-warning:#ef9f27;--border-danger:#f09595;
+    --bg-accent:#042c53;--bg-success:#173404;--bg-warning:#412402;--bg-danger:#501313;
+    --text-accent:#85b7eb;--text-success:#97c459;--text-warning:#ef9f27;--text-danger:#f09595;
+    --fill-accent:#378add;--fill-accent-hover:#5aaae8;
+  }
+}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);color:var(--text-primary);font-size:14px;min-height:100vh}
+.app{max-width:920px;margin:0 auto;padding:1.5rem 1rem}
+h1{font-size:22px;font-weight:500;margin-bottom:4px}
+.subtitle{color:var(--text-secondary);font-size:13px;margin-bottom:1.5rem}
+.tabs{display:flex;gap:2px;border-bottom:0.5px solid var(--border);margin-bottom:1.5rem}
+.tab{padding:9px 18px;border:none;background:none;color:var(--text-secondary);cursor:pointer;font-size:13px;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:0;transition:.15s}
+.tab.active{color:var(--text-accent);border-bottom-color:var(--fill-accent);font-weight:500}
+.tab:hover:not(.active){color:var(--text-primary);background:var(--surface-1)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:1.5rem}
+.card{background:var(--surface-1);border-radius:8px;padding:14px 16px}
+.card-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.card-value{font-size:26px;font-weight:500}
+.section{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.section-title{font-size:11px;font-weight:500;color:var(--text-muted);margin-bottom:14px;text-transform:uppercase;letter-spacing:.7px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:12px;color:var(--text-secondary);font-weight:500}
+.form-group input,.form-group select{padding:8px 10px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--surface-0);color:var(--text-primary);font-size:13px;width:100%;transition:.15s}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--fill-accent);box-shadow:0 0 0 3px rgba(55,138,221,.15)}
+.btn-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+button{padding:8px 16px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:transparent;color:var(--text-primary);cursor:pointer;font-size:13px;transition:.15s}
+button:hover{background:var(--surface-1)}
+button:active{transform:scale(.98)}
+.btn-primary{background:var(--fill-accent);color:var(--on-accent);border-color:var(--fill-accent)}
+.btn-primary:hover{background:var(--fill-accent-hover);border-color:var(--fill-accent-hover)}
+.btn-danger{color:var(--text-danger);border-color:var(--border-danger)}
+.btn-danger:hover{background:var(--bg-danger)}
+.disc-group{margin-bottom:2rem}
+.disc-group-title{font-size:14px;font-weight:500;margin-bottom:10px;padding-bottom:6px;border-bottom:0.5px solid var(--border)}
+.disc-table{width:100%;border-collapse:collapse;font-size:13px}
+.disc-table th{text-align:left;padding:7px 10px;color:var(--text-muted);font-weight:400;border-bottom:0.5px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.disc-table td{padding:8px 10px;border-bottom:0.5px solid var(--border)}
+.disc-table tr:last-child td{border-bottom:none}
+.disc-table tr:hover td{background:var(--surface-1)}
+.bar-wrap{width:90px;background:var(--surface-1);border-radius:4px;height:6px;display:inline-block;vertical-align:middle}
+.bar-fill{height:6px;border-radius:4px;transition:width .3s}
+.bar-blue{background:var(--fill-accent)}
+.bar-amber{background:var(--fill-warning)}
+.bar-red{background:var(--fill-danger)}
+.badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.badge-success{background:var(--bg-success);color:var(--text-success)}
+.badge-warning{background:var(--bg-warning);color:var(--text-warning)}
+.badge-danger{background:var(--bg-danger);color:var(--text-danger)}
+.badge-muted{background:var(--surface-1);color:var(--text-muted);border:0.5px solid var(--border)}
+.cut-val{font-weight:500;font-variant-numeric:tabular-nums}
+.pct-label{font-size:12px;color:var(--text-secondary);margin-left:7px}
+.turma-tag{display:inline-block;background:var(--surface-0);border:0.5px solid var(--border);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:500}
+.msg{padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:12px;display:none;font-weight:500}
+.msg-success{background:var(--bg-success);color:var(--text-success);border:0.5px solid var(--border-success)}
+.msg-error{background:var(--bg-danger);color:var(--text-danger);border:0.5px solid var(--border-danger)}
+.file-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=file]{display:none}
+.info-note{font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.6}
+.no-data{text-align:center;padding:2.5rem;color:var(--text-muted);font-size:13px}
+@media(max-width:600px){
+  .form-grid{grid-template-columns:1fr}
+  .cards{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Simulador de Matrícula — Medicina</h1>
+  <p class="subtitle">Resultado anônimo · Ordenação por IRA · Atualização automática em tempo real</p>
+
+  <div id="msg" class="msg" role="alert"></div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" role="tab" onclick="showTab('cadastro')">Cadastro</button>
+    <button class="tab" role="tab" onclick="showTab('cortes')">Cortes em tempo real</button>
+  </nav>
+
+  <!-- CADASTRO -->
+  <div id="tab-cadastro" role="tabpanel">
+    <div class="cards">
+      <div class="card"><div class="card-label">Participantes</div><div class="card-value" id="stat-total">0</div></div>
+      <div class="card"><div class="card-label">Turmas simuladas</div><div class="card-value">40</div></div>
+      <div class="card"><div class="card-label">Total de vagas</div><div class="card-value">877</div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Novo participante</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="ira">IRA (0 a 100)</label>
+          <input type="number" id="ira" min="0" max="100" step="0.01" placeholder="ex: 87.50" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="sel-anatomia">Anatomia Prática</label>
+          <select id="sel-anatomia"><option>A</option><option>B</option><option>C</option><option>D</option></select>
+        </div>
+        <div class="form-group">
+          <label for="sel-histologia">Histologia Prática</label>
+          <select id="sel-histologia"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select>
+        </div>
+        <div class="form-group">
+          <label for="sel-micro">Microbiologia Prática</label>
+          <select id="sel-micro"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option></select>
+        </div>
+        <div class="form-group">
+          <label for="sel-semio">Semiologia Prática</label>
+          <select id="sel-semio"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select>
+        </div>
+        <div class="form-group">
+          <label for="sel-antro">Antropologia</label>
+          <select id="sel-antro"><option>A</option><option>B</option><option>C</option></select>
+        </div>
+        <div class="form-group">
+          <label for="sel-farma">Farmacologia</label>
+          <select id="sel-farma"><option>A</option><option>B</option><option>C</option><option>D</option></select>
+        </div>
+        <div class="form-group">
+          <label for="sel-fisio">Fisiologia</label>
+          <select id="sel-fisio"><option>A</option><option>B</option></select>
+        </div>
+        <div class="form-group">
+          <label for="sel-tica">TICA</label>
+          <select id="sel-tica"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option><option>J</option><option>K</option><option>L</option></select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="salvar()">Cadastrar participante</button>
+        <button onclick="limparForm()">Limpar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CORTES -->
+  <div id="tab-cortes" style="display:none" role="tabpanel">
+    <div id="cortes-container"></div>
+  </div>
+
+</div>
+
+<script>
+const VAGAS = {
+  "Anatomia Prática":       {A:20,B:20,C:18,D:18},
+  "Histologia Prática":     {A:13,B:13,C:13,D:13,E:12,F:12},
+  "Microbiologia Prática":  {A:15,B:15,C:15,D:15,E:16},
+  "Semiologia Prática":     {A:10,B:10,C:10,D:10,E:10,F:10,G:10,H:10},
+  "Antropologia":           {A:20,B:20,C:20},
+  "Farmacologia":           {A:18,B:21,C:22,D:21},
+  "Fisiologia":             {A:38,B:38},
+  "TICA":                   {A:8,B:8,C:8,D:7,E:6,F:8,G:7,H:7,J:7,K:7,L:7}
+};
+const DISC_MAP = {
+  "Anatomia Prática":"anatomia","Histologia Prática":"histologia",
+  "Microbiologia Prática":"micro","Semiologia Prática":"semio",
+  "Antropologia":"antro","Farmacologia":"farma","Fisiologia":"fisio","TICA":"tica"
+};
+const LS_KEY = "mat-med-v2";
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+function load(){try{return JSON.parse(localStorage.getItem(LS_KEY)||"[]")}catch{return[]}}
+function save(d){localStorage.setItem(LS_KEY,JSON.stringify(d))}
+
+function salvar(){
+  const iraRaw = document.getElementById("ira").value.trim();
+  if(iraRaw===""){showMsg("Informe o IRA.","error");return}
+  const ira = parseFloat(iraRaw);
+  if(isNaN(ira)||ira<0||ira>100){showMsg("IRA inválido. Use um valor entre 0 e 100.","error");return}
+  const dados = load();
+  const entry = {
+    id: uid(), ira,
+    anatomia:  document.getElementById("sel-anatomia").value,
+    histologia:document.getElementById("sel-histologia").value,
+    micro:     document.getElementById("sel-micro").value,
+    semio:     document.getElementById("sel-semio").value,
+    antro:     document.getElementById("sel-antro").value,
+    farma:     document.getElementById("sel-farma").value,
+    fisio:     document.getElementById("sel-fisio").value,
+    tica:      document.getElementById("sel-tica").value
+  };
+  dados.push(entry);
+  save(dados);
+  showMsg("Cadastro realizado!","success");
+  limparForm(true);
+  atualizar();
+}
+
+function limparForm(mantMsg){
+  document.getElementById("ira").value="";
+  ["sel-anatomia","sel-histologia","sel-micro","sel-semio","sel-antro","sel-farma","sel-fisio","sel-tica"]
+    .forEach(id=>document.getElementById(id).value="");
+  if(!mantMsg) document.getElementById("msg").style.display="none";
+}
+
+function calcCortes(){
+  const dados = load();
+  const result = {};
+  for(const [disc,turmas] of Object.entries(VAGAS)){
+    const key = DISC_MAP[disc];
+    result[disc] = {};
+    for(const [t,vagas] of Object.entries(turmas)){
+      const cands = dados.filter(d=>d[key]===t).sort((a,b)=>b.ira-a.ira);
+      const corte = cands.length >= vagas ? cands[vagas-1].ira : null;
+      result[disc][t] = {vagas, cands:cands.length, corte};
+    }
+  }
+  return result;
+}
+
+function renderCortes(){
+  const cortes = calcCortes();
+  const total = load().length;
+  if(!total){
+    document.getElementById("cortes-container").innerHTML=
+      '<div class="no-data"><p style="font-size:28px;margin-bottom:8px">📊</p><p>Nenhum participante cadastrado ainda.</p><p style="font-size:12px;margin-top:4px">Cadastre participantes na aba "Cadastro" para ver os cortes.</p></div>';
+    return;
+  }
+  let html="";
+  for(const [disc,turmas] of Object.entries(cortes)){
+    html+=`<div class="disc-group"><div class="disc-group-title">${disc}</div>
+      <table class="disc-table">
+        <thead><tr>
+          <th>Turma</th><th>Vagas</th><th>Candidatos</th><th>Ocupação</th><th>Corte atual</th><th>Status</th>
+        </tr></thead><tbody>`;
+    for(const [t,info] of Object.entries(turmas)){
+      const pct = Math.min(100,Math.round(info.cands/info.vagas*100));
+      const barClass = pct>=100?"bar-red":pct>=80?"bar-amber":"bar-blue";
+      const corteStr = info.corte!==null ? info.corte.toFixed(2) : "—";
+      const badgeClass = pct>=100?"badge-danger":pct>=80?"badge-warning":"badge-muted";
+      const statusLabel = pct>=100?"Lotada":pct>=80?"Quase cheia":"Com vagas";
+      html+=`<tr>
+        <td><span class="turma-tag">${t}</span></td>
+        <td>${info.vagas}</td>
+        <td>${info.cands}</td>
+        <td>
+          <div class="bar-wrap"><div class="bar-fill ${barClass}" style="width:${pct}%"></div></div>
+          <span class="pct-label">${pct}%</span>
+        </td>
+        <td><span class="cut-val">${corteStr}</span></td>
+        <td><span class="badge ${badgeClass}">${statusLabel}</span></td>
+      </tr>`;
+    }
+    html+="</tbody></table></div>";
+  }
+  document.getElementById("cortes-container").innerHTML=html;
+}
+
+function atualizar(){
+  document.getElementById("stat-total").textContent=load().length;
+  renderCortes();
+}
+
+function showTab(t){
+  ["cadastro","cortes"].forEach(id=>{
+    document.getElementById("tab-"+id).style.display=id===t?"":"none";
+  });
+  document.querySelectorAll(".tab").forEach((el,i)=>{
+    const names=["cadastro","cortes"];
+    el.classList.toggle("active",names[i]===t);
+  });
+  if(t==="cortes") renderCortes();
+}
+
+function showMsg(txt,type){
+  const el=document.getElementById("msg");
+  el.textContent=txt;
+  el.className="msg msg-"+(type||"success");
+  el.style.display="block";
+  clearTimeout(showMsg._t);
+  showMsg._t=setTimeout(()=>el.style.display="none",4000);
+}
+
+atualizar();
+</script>
+</body>
+</html>
