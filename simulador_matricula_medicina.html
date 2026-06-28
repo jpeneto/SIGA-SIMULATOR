@@ -110,7 +110,7 @@ button:active{transform:scale(.98)}
     <div class="cards">
       <div class="card"><div class="card-label">Participantes</div><div class="card-value" id="stat-total">—</div></div>
       <div class="card"><div class="card-label">Turmas simuladas</div><div class="card-value">40</div></div>
-      <div class="card"><div class="card-label">Total de vagas</div><div class="card-value">877</div></div>
+      <div class="card"><div class="card-label">Total de vagas</div><div class="card-value">639</div></div>
     </div>
     <div class="section">
       <div class="section-title">Novo participante</div>
@@ -187,6 +187,9 @@ const DISC_MAP = {
 };
 
 let dadosGlobais = [];
+let connected = false;
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 
 function setStatus(estado){
   const dot = document.getElementById("status-dot");
@@ -249,16 +252,50 @@ function limparForm(mantMsg){
 }
 
 function calcCortes(dados){
+
   const result = {};
+
   for(const [disc,turmas] of Object.entries(VAGAS)){
+
     const key = DISC_MAP[disc];
     result[disc] = {};
+
     for(const [t,vagas] of Object.entries(turmas)){
-      const cands = dados.filter(d=>d[key]===t).sort((a,b)=>b.ira-a.ira);
-      const corte = cands.length >= vagas ? cands[vagas-1].ira : null;
-      result[disc][t] = {vagas, cands:cands.length, corte};
+
+      const cands = dados
+        .filter(d => d[key] === t)
+        .sort((a,b) => b.ira - a.ira);
+
+      let corte = null;
+      let aprovados = 0;
+
+      if(cands.length > 0){
+
+        if(cands.length >= vagas){
+
+          corte = cands[vagas - 1].ira;
+          aprovados = cands.filter(aluno => aluno.ira >= corte).length;
+
+        }else{
+
+          corte = cands[cands.length - 1].ira;
+          aprovados = cands.length;
+
+        }
+
+      }
+
+      result[disc][t] = {
+        vagas,
+        cands: cands.length,
+        corte,
+        aprovados
+      };
+
     }
+
   }
+
   return result;
 }
 
@@ -279,9 +316,24 @@ function renderCortes(){
     for(const [t,info] of Object.entries(turmas)){
       const pct = Math.min(100,Math.round(info.cands/info.vagas*100));
       const barClass = pct>=100?"bar-red":pct>=80?"bar-amber":"bar-blue";
-      const corteStr = info.corte!==null ? info.corte.toFixed(2) : "—";
-      const badgeClass = pct>=100?"badge-danger":pct>=80?"badge-warning":"badge-muted";
-      const statusLabel = pct>=100?"Lotada":pct>=80?"Quase cheia":"Com vagas";
+      const corteStr = info.corte!==null
+  ? info.corte.toFixed(2)
+  : "Sem candidatos";
+      let badgeClass;
+      let statusLabel;
+
+      if(info.cands === 0){
+        badgeClass = "badge-muted";
+        statusLabel = "Sem candidatos";
+      }
+      else if(info.cands < info.vagas){
+        badgeClass = "badge-muted";
+        statusLabel = "Não lotada";
+      }
+      else{
+        badgeClass = "badge-danger";
+        statusLabel = "Lotada";
+      }
       html+=`<tr>
         <td><span class="turma-tag">${t}</span></td>
         <td>${info.vagas}</td>
@@ -322,6 +374,7 @@ function showMsg(txt,type){
   showMsg._t=setTimeout(()=>el.style.display="none",4000);
 }
 
+// Firebase Realtime Database — streaming via SSE
 function conectarFirebase(){
   setStatus("loading");
   const evtSource = new EventSource(DB_URL+".json");
@@ -330,7 +383,8 @@ function conectarFirebase(){
     try {
       const payload = JSON.parse(e.data);
       const val = payload.data;
-      dadosGlobais = val ? Object.values(val) : [];
+      if(!val){dadosGlobais=[];}
+      else{dadosGlobais = Object.values(val);}
       setStatus("ok");
       atualizarUI();
     } catch(err){console.error(err)}
@@ -352,6 +406,7 @@ function conectarFirebase(){
   evtSource.onerror = ()=>{
     setStatus("err");
     evtSource.close();
+    // tenta reconectar após 5s
     setTimeout(conectarFirebase, 5000);
   };
 }
