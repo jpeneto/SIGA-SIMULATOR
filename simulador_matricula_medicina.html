@@ -54,8 +54,6 @@ button:hover{background:var(--surface-1)}
 button:active{transform:scale(.98)}
 .btn-primary{background:var(--fill-accent);color:var(--on-accent);border-color:var(--fill-accent)}
 .btn-primary:hover{background:var(--fill-accent-hover);border-color:var(--fill-accent-hover)}
-.btn-danger{color:var(--text-danger);border-color:var(--border-danger)}
-.btn-danger:hover{background:var(--bg-danger)}
 .disc-group{margin-bottom:2rem}
 .disc-group-title{font-size:14px;font-weight:500;margin-bottom:10px;padding-bottom:6px;border-bottom:0.5px solid var(--border)}
 .disc-table{width:100%;border-collapse:collapse;font-size:13px}
@@ -69,7 +67,6 @@ button:active{transform:scale(.98)}
 .bar-amber{background:var(--fill-warning)}
 .bar-red{background:var(--fill-danger)}
 .badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:500}
-.badge-success{background:var(--bg-success);color:var(--text-success)}
 .badge-warning{background:var(--bg-warning);color:var(--text-warning)}
 .badge-danger{background:var(--bg-danger);color:var(--text-danger)}
 .badge-muted{background:var(--surface-1);color:var(--text-muted);border:0.5px solid var(--border)}
@@ -79,10 +76,12 @@ button:active{transform:scale(.98)}
 .msg{padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:12px;display:none;font-weight:500}
 .msg-success{background:var(--bg-success);color:var(--text-success);border:0.5px solid var(--border-success)}
 .msg-error{background:var(--bg-danger);color:var(--text-danger);border:0.5px solid var(--border-danger)}
-.file-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-input[type=file]{display:none}
-.info-note{font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.6}
 .no-data{text-align:center;padding:2.5rem;color:var(--text-muted);font-size:13px}
+.status-bar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);margin-bottom:1rem}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--fill-success);flex-shrink:0}
+.status-dot.off{background:var(--text-muted)}
+.status-dot.loading{background:var(--fill-warning);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @media(max-width:600px){
   .form-grid{grid-template-columns:1fr}
   .cards{grid-template-columns:1fr 1fr}
@@ -92,9 +91,14 @@ input[type=file]{display:none}
 <body>
 <div class="app">
   <h1>Simulador de Matrícula — Medicina</h1>
-  <p class="subtitle">Resultado anônimo · Ordenação por IRA · Atualização automática em tempo real</p>
+  <p class="subtitle">Resultado anônimo · Ordenação por IRA · Dados compartilhados em tempo real</p>
 
   <div id="msg" class="msg" role="alert"></div>
+
+  <div class="status-bar">
+    <div class="status-dot loading" id="status-dot"></div>
+    <span id="status-txt">Conectando ao banco de dados...</span>
+  </div>
 
   <nav class="tabs" role="tablist">
     <button class="tab active" role="tab" onclick="showTab('cadastro')">Cadastro</button>
@@ -104,7 +108,7 @@ input[type=file]{display:none}
   <!-- CADASTRO -->
   <div id="tab-cadastro" role="tabpanel">
     <div class="cards">
-      <div class="card"><div class="card-label">Participantes</div><div class="card-value" id="stat-total">0</div></div>
+      <div class="card"><div class="card-label">Participantes</div><div class="card-value" id="stat-total">—</div></div>
       <div class="card"><div class="card-label">Turmas simuladas</div><div class="card-value">40</div></div>
       <div class="card"><div class="card-label">Total de vagas</div><div class="card-value">877</div></div>
     </div>
@@ -149,7 +153,7 @@ input[type=file]{display:none}
         </div>
       </div>
       <div class="btn-row">
-        <button class="btn-primary" onclick="salvar()">Cadastrar participante</button>
+        <button class="btn-primary" onclick="salvar()" id="btn-salvar">Cadastrar participante</button>
         <button onclick="limparForm()">Limpar</button>
       </div>
     </div>
@@ -157,12 +161,15 @@ input[type=file]{display:none}
 
   <!-- CORTES -->
   <div id="tab-cortes" style="display:none" role="tabpanel">
-    <div id="cortes-container"></div>
+    <div id="cortes-container">
+      <div class="no-data"><p style="font-size:28px;margin-bottom:8px">⏳</p><p>Carregando dados...</p></div>
+    </div>
   </div>
 
 </div>
 
 <script>
+const DB_URL = "https://siga-simulator-default-rtdb.firebaseio.com/participantes";
 const VAGAS = {
   "Anatomia Prática":       {A:20,B:20,C:18,D:18},
   "Histologia Prática":     {A:13,B:13,C:13,D:13,E:12,F:12},
@@ -178,20 +185,36 @@ const DISC_MAP = {
   "Microbiologia Prática":"micro","Semiologia Prática":"semio",
   "Antropologia":"antro","Farmacologia":"farma","Fisiologia":"fisio","TICA":"tica"
 };
-const LS_KEY = "mat-med-v2";
 
-function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
-function load(){try{return JSON.parse(localStorage.getItem(LS_KEY)||"[]")}catch{return[]}}
-function save(d){localStorage.setItem(LS_KEY,JSON.stringify(d))}
+let dadosGlobais = [];
 
-function salvar(){
+function setStatus(estado){
+  const dot = document.getElementById("status-dot");
+  const txt = document.getElementById("status-txt");
+  if(estado==="ok"){
+    dot.className="status-dot";
+    txt.textContent="Conectado · dados em tempo real";
+  } else if(estado==="err"){
+    dot.className="status-dot off";
+    txt.textContent="Sem conexão com o banco de dados";
+  } else {
+    dot.className="status-dot loading";
+    txt.textContent="Conectando...";
+  }
+}
+
+async function salvar(){
   const iraRaw = document.getElementById("ira").value.trim();
   if(iraRaw===""){showMsg("Informe o IRA.","error");return}
   const ira = parseFloat(iraRaw);
   if(isNaN(ira)||ira<0||ira>100){showMsg("IRA inválido. Use um valor entre 0 e 100.","error");return}
-  const dados = load();
+
+  const btn = document.getElementById("btn-salvar");
+  btn.disabled = true;
+  btn.textContent = "Salvando...";
+
   const entry = {
-    id: uid(), ira,
+    ira,
     anatomia:  document.getElementById("sel-anatomia").value,
     histologia:document.getElementById("sel-histologia").value,
     micro:     document.getElementById("sel-micro").value,
@@ -199,24 +222,33 @@ function salvar(){
     antro:     document.getElementById("sel-antro").value,
     farma:     document.getElementById("sel-farma").value,
     fisio:     document.getElementById("sel-fisio").value,
-    tica:      document.getElementById("sel-tica").value
+    tica:      document.getElementById("sel-tica").value,
+    ts:        Date.now()
   };
-  dados.push(entry);
-  save(dados);
-  showMsg("Cadastro realizado!","success");
-  limparForm(true);
-  atualizar();
+
+  try {
+    const res = await fetch(DB_URL+".json", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(entry)
+    });
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    showMsg("Cadastro realizado com sucesso!","success");
+    limparForm(true);
+  } catch(e){
+    showMsg("Erro ao salvar. Verifique sua conexão.","error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Cadastrar participante";
+  }
 }
 
 function limparForm(mantMsg){
   document.getElementById("ira").value="";
-  ["sel-anatomia","sel-histologia","sel-micro","sel-semio","sel-antro","sel-farma","sel-fisio","sel-tica"]
-    .forEach(id=>document.getElementById(id).value="");
   if(!mantMsg) document.getElementById("msg").style.display="none";
 }
 
-function calcCortes(){
-  const dados = load();
+function calcCortes(dados){
   const result = {};
   for(const [disc,turmas] of Object.entries(VAGAS)){
     const key = DISC_MAP[disc];
@@ -231,11 +263,10 @@ function calcCortes(){
 }
 
 function renderCortes(){
-  const cortes = calcCortes();
-  const total = load().length;
-  if(!total){
+  const cortes = calcCortes(dadosGlobais);
+  if(!dadosGlobais.length){
     document.getElementById("cortes-container").innerHTML=
-      '<div class="no-data"><p style="font-size:28px;margin-bottom:8px">📊</p><p>Nenhum participante cadastrado ainda.</p><p style="font-size:12px;margin-top:4px">Cadastre participantes na aba "Cadastro" para ver os cortes.</p></div>';
+      '<div class="no-data"><p style="font-size:28px;margin-bottom:8px">📊</p><p>Nenhum participante cadastrado ainda.</p><p style="font-size:12px;margin-top:4px">Seja o primeiro a cadastrar!</p></div>';
     return;
   }
   let html="";
@@ -268,8 +299,8 @@ function renderCortes(){
   document.getElementById("cortes-container").innerHTML=html;
 }
 
-function atualizar(){
-  document.getElementById("stat-total").textContent=load().length;
+function atualizarUI(){
+  document.getElementById("stat-total").textContent = dadosGlobais.length;
   renderCortes();
 }
 
@@ -278,10 +309,8 @@ function showTab(t){
     document.getElementById("tab-"+id).style.display=id===t?"":"none";
   });
   document.querySelectorAll(".tab").forEach((el,i)=>{
-    const names=["cadastro","cortes"];
-    el.classList.toggle("active",names[i]===t);
+    el.classList.toggle("active",["cadastro","cortes"][i]===t);
   });
-  if(t==="cortes") renderCortes();
 }
 
 function showMsg(txt,type){
@@ -293,7 +322,41 @@ function showMsg(txt,type){
   showMsg._t=setTimeout(()=>el.style.display="none",4000);
 }
 
-atualizar();
+function conectarFirebase(){
+  setStatus("loading");
+  const evtSource = new EventSource(DB_URL+".json");
+
+  evtSource.addEventListener("put", e=>{
+    try {
+      const payload = JSON.parse(e.data);
+      const val = payload.data;
+      dadosGlobais = val ? Object.values(val) : [];
+      setStatus("ok");
+      atualizarUI();
+    } catch(err){console.error(err)}
+  });
+
+  evtSource.addEventListener("patch", e=>{
+    try {
+      const payload = JSON.parse(e.data);
+      const val = payload.data;
+      if(val){
+        Object.values(val).forEach(entry=>{
+          if(entry) dadosGlobais.push(entry);
+        });
+        atualizarUI();
+      }
+    } catch(err){console.error(err)}
+  });
+
+  evtSource.onerror = ()=>{
+    setStatus("err");
+    evtSource.close();
+    setTimeout(conectarFirebase, 5000);
+  };
+}
+
+conectarFirebase();
 </script>
 </body>
 </html>
